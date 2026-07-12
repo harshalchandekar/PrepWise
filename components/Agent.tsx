@@ -37,14 +37,17 @@ const Agent = ({
 
   useEffect(() => {
     const onCallStart = () => {
+      console.log("Call started successfully");
       setCallStatus(CallStatus.ACTIVE);
     };
 
     const onCallEnd = () => {
+      console.log("Call ended");
       setCallStatus(CallStatus.FINISHED);
     };
 
     const onMessage = (message: Message) => {
+      console.log("Message received:", message);
       if (message.type === "transcript" && message.transcriptType === "final") {
         const newMessage = { role: message.role, content: message.transcript };
         setMessages((prev) => [...prev, newMessage]);
@@ -61,8 +64,23 @@ const Agent = ({
       setIsSpeaking(false);
     };
 
-    const onError = (error: Error) => {
-      console.log("Error:", error);
+    const onError = (error: any) => {
+      console.error("Vapi Error Event:", error);
+      if (error && typeof error === "object") {
+        try {
+          console.error("Error Details:", JSON.stringify(error, null, 2));
+        } catch (e) {
+          console.error("Error Details (non-stringifiable):", error);
+        }
+      }
+    };
+
+    const onCallStartProgress = (event: any) => {
+      console.log("Call Start Progress:", event);
+    };
+
+    const onCallStartFailed = (event: any) => {
+      console.error("Call Start Failed:", event);
     };
 
     vapi.on("call-start", onCallStart);
@@ -71,6 +89,8 @@ const Agent = ({
     vapi.on("speech-start", onSpeechStart);
     vapi.on("speech-end", onSpeechEnd);
     vapi.on("error", onError);
+    vapi.on("call-start-progress", onCallStartProgress);
+    vapi.on("call-start-failed", onCallStartFailed);
 
     return () => {
       vapi.off("call-start", onCallStart);
@@ -79,6 +99,8 @@ const Agent = ({
       vapi.off("speech-start", onSpeechStart);
       vapi.off("speech-end", onSpeechEnd);
       vapi.off("error", onError);
+      vapi.off("call-start-progress", onCallStartProgress);
+      vapi.off("call-start-failed", onCallStartFailed);
     };
   }, []);
 
@@ -119,7 +141,7 @@ const Agent = ({
 
     if (type === "generate") {
       await vapi.start(
-         undefined,
+        undefined,
         undefined,
         undefined,
         process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
@@ -136,11 +158,23 @@ const Agent = ({
           .join("\n");
       }
 
-      await vapi.start(interviewer, {
-        variableValues: {
-          questions: formattedQuestions,
-        },
-      });
+      const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
+
+      if (assistantId) {
+        // Start call using pre-configured Vapi Assistant ID from dashboard
+        await vapi.start(assistantId, {
+          variableValues: {
+            questions: formattedQuestions,
+          },
+        });
+      } else {
+        // Fallback to inline configuration object
+        await vapi.start(interviewer, {
+          variableValues: {
+            questions: formattedQuestions,
+          },
+        });
+      }
     }
   };
 

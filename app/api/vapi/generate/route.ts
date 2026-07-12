@@ -13,7 +13,7 @@ export async function POST(request: Request){
 
     try{
         const { text: questions } = await generateText({
-            model: google('gemini-2.0-flash-001'),
+            model: google('gemini-flash-latest'),
             prompt: `Prepare questions for a job interview.
         The job role is ${role}.
         The job experience level is ${level}.
@@ -39,9 +39,9 @@ export async function POST(request: Request){
             createdAt: new Date().toISOString()
         }
 
-        await db.collection("interviews").add(interview);
+        const docRef = await db.collection("interviews").add(interview);
 
-        return Response.json({success:true}, {status:200});
+        return Response.json({success:true, id: docRef.id}, {status:200});
 
     } catch(error){
         console.log(error);
